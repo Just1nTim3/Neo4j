@@ -1,0 +1,143 @@
+//Neo4j scripts
+
+
+///////////////////////////adding nodes
+
+//add order nodes
+LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/orders.csv' AS row
+MERGE (order:Order {orderID: row.OrderID})
+  ON CREATE SET 
+    order.orderDate = row.OrderDate,
+    order.requiredDate = row.requiredDate,
+    order.shippedDate = row.ShippedDate,
+    order.shipAddress = row.ShipAddress,
+    order.shipCity = row.ShipCity,
+    order.shipPostalCode = row.ShipPostalCode,
+    order.shipCountry = row.ShipCountry;
+	
+	
+	
+//add product nodes
+LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/products.csv' AS row
+MERGE (product:Product {productID: row.ProductID})
+  ON CREATE SET 
+    product.productName = row.ProductName, 
+    product.quantityPerUnit = row.QuantityPerUnit, 
+    product.unitPrice = toFloat(row.UnitPrice),
+    product.unitsInStock = row.UnitsInStock, 
+    product.unitsOnOrder = row.UnitsOnOrder, 
+    product.reorderLevel = row.ReorderLevel, 
+    product.discounted = row.Discounted; 
+
+
+
+//add employee nodes
+LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/employees.csv' AS row
+MERGE (e:Employee {employeeID:row.EmployeeID})
+  ON CREATE SET 
+    e.firstName = row.FirstName, 
+    e.lastName = row.LastName, 
+    e.title = row.Title,
+    e.birthDate = row.BirthDate, 
+    e.hireDate = row.HireDate, 
+    e.homePhone = row.HomePhone;
+
+
+//add category nodes
+LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/categories.csv' AS row
+MERGE (c:Category {categoryID: row.CategoryID})
+  ON CREATE SET 
+    c.categoryName = row.CategoryName, 
+    c.description = row.Description;
+	
+	
+
+//add supplier nodes
+LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/suppliers.csv' AS row
+MERGE (supplier:Supplier {supplierID: row.SupplierID})
+  ON CREATE SET 
+    supplier.companyName = row.CompanyName,
+    supplier.contactName = row.ContactName,
+    supplier.contactTitle = row.ContactTitle,
+    supplier.address = row.Address,
+    supplier.city = row.City,
+    supplier.postalCode = row.PostalCode,
+    supplier.country = row.Country,
+    supplier.phone = row.Phone;
+	
+	
+
+///////////////////////////adding relations
+
+//employee - order relationships
+LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/orders.csv' AS row
+MATCH (order:Order {orderID: row.OrderID})
+MATCH (employee:Employee {employeeID: row.EmployeeID})
+MERGE (employee)-[:SOLD]->(order);
+
+//order - product relationships
+LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/orders.csv' AS row
+MATCH (order:Order {orderID: row.OrderID})
+MATCH (product:Product {productID: row.ProductID})
+MERGE (order)-[op:CONTAINS]->(product)
+  ON CREATE SET 
+    op.unitPrice = toFloat(row.UnitPrice), 
+    op.quantity = toFloat(row.Quantity),
+    op.discount = toFloat(row.Discount);
+
+
+//Product - Supplier
+LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/products.csv' AS row
+MATCH (product:Product {productID: row.ProductID})
+MATCH (supplier:Supplier {supplierID: row.SupplierID})
+MERGE (supplier)-[:SUPPLIES]->(product);
+
+//product - category
+LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/products.csv' AS row
+MATCH (product:Product {productID: row.ProductID})
+MATCH (category:Category {categoryID: row.CategoryID})
+MERGE (product)-[:PART_OF]->(category);
+
+
+//employee - manager
+LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/employees.csv' AS row
+MATCH (employee:Employee {employeeID: row.EmployeeID})
+MATCH (manager:Employee {employeeID: row.ReportsTo})
+MERGE (employee)-[:REPORTS_TO]->(manager);
+
+
+///////////////////////////////Rozszerzanie bazy 
+//add customer
+LOAD CSV WITH HEADERS FROM 'file:///customers.csv' AS row
+MERGE (c:Customer {customerID: row.customerID})
+  ON CREATE SET 
+    c.companyName = row.companyName,
+    c.contactName = row.contactName,
+    c.contactTitle = row.contactTitle,
+    c.address = row.address,
+    c.city = row.city,
+    c.postalCode = row.postalCode,
+    c.country = row.country,
+    c.phone = row.phone;
+	
+//customer - order relationships
+LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/orders.csv' AS row
+MATCH (order:Order {orderID: row.OrderID})
+MATCH (customer:Customer {customerID: row.CustomerID})
+MERGE (customer)-[:BOUGHT]->(order);
+
+
+
+////////////////////////////////////////INDEXY
+CREATE RANGE INDEX IF NOT EXISTS FOR ()-[c:CONTAINS]-() ON (c.quantity);
+CREATE TEXT INDEX IF NOT EXISTS FOR (c:Customer) on (c.companyName);
+
+
+
+CALL apoc.custom.declareProcedure(
+    'getCustomerWhoBoughtTheMost(productName::STRING) :: (name::STRING, unitCount::STRING)',
+    'MATCH (c:Customer) - [b:BOUGHT] -> (o:Order) - [co:CONTAINS] -> (p:Product) 
+    WHERE p.productName = $productName RETURN c.companyName AS name, 
+    sum(toInteger(co.quantity)) AS unitCount ORDER BY unitCount DESC LIMIT 1'
+)
+
